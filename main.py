@@ -1,8 +1,10 @@
 import csv
 import os
+from datetime import datetime
+from collections import defaultdict
 
 FILENAME = "expenses.csv"
-FIELDNAMES = ["amount", "category", "description"]
+FIELDNAMES = ["date", "amount", "category", "description"]
 
 
 def show_menu():
@@ -11,7 +13,10 @@ def show_menu():
     print("2. View Expenses")
     print("3. Delete Expense")
     print("4. Edit Expense")
-    print("5. Exit")
+    print("5. Total Spending")
+    print("6. Spending by Category")
+    print("7. Spending by Month")
+    print("8. Exit")
 
 
 def save_expense(expense):
@@ -25,9 +30,7 @@ def save_expense(expense):
 
 
 def save_all_expenses(expenses):
-    """Rewrite the entire CSV file from the current expenses list.
-    Needed after delete/edit since those change existing rows,
-    not just add new ones."""
+    """Rewrite the entire CSV file from the current expenses list."""
     with open(FILENAME, mode="w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
@@ -51,14 +54,16 @@ def add_expense(expenses):
     amount = input("Enter amount: ")
     category = input("Enter category (e.g. Food, Travel): ")
     description = input("Enter description: ")
+    date = datetime.now().strftime("%Y-%m-%d")  # auto-filled, e.g. 2026-07-10
 
     expense = {
+        "date": date,
         "amount": amount,
         "category": category,
         "description": description
     }
     expenses.append(expense)
-    save_expense(expense)  # append to disk immediately
+    save_expense(expense)
     print("Expense added!")
 
 
@@ -69,7 +74,7 @@ def view_expenses(expenses):
 
     print("\n--- Your Expenses ---")
     for i, exp in enumerate(expenses, start=1):
-        print(f"{i}. ₹{exp['amount']} | {exp['category']} | {exp['description']}")
+        print(f"{i}. {exp['date']} | ₹{exp['amount']} | {exp['category']} | {exp['description']}")
 
 
 def delete_expense(expenses):
@@ -114,12 +119,52 @@ def edit_expense(expenses):
         print("Please enter a valid number.")
 
 
+def total_spending(expenses):
+    """Day 5: Sum of all expense amounts."""
+    if not expenses:
+        print("No expenses yet.")
+        return
+    total = sum(float(exp["amount"]) for exp in expenses)
+    print(f"\nTotal spending: ₹{total:.2f}")
+
+
+def spending_by_category(expenses):
+    """Day 5: Group and sum amounts by category."""
+    if not expenses:
+        print("No expenses yet.")
+        return
+
+    totals = defaultdict(float)
+    for exp in expenses:
+        totals[exp["category"]] += float(exp["amount"])
+
+    print("\n--- Spending by Category ---")
+    for category, amount in sorted(totals.items(), key=lambda x: -x[1]):
+        print(f"{category}: ₹{amount:.2f}")
+
+
+def spending_by_month(expenses):
+    """Day 5: Group and sum amounts by year-month (e.g. 2026-07)."""
+    if not expenses:
+        print("No expenses yet.")
+        return
+
+    totals = defaultdict(float)
+    for exp in expenses:
+        month = exp["date"][:7]  # "2026-07-10" -> "2026-07"
+        totals[month] += float(exp["amount"])
+
+    print("\n--- Spending by Month ---")
+    for month, amount in sorted(totals.items()):
+        print(f"{month}: ₹{amount:.2f}")
+
+
 def main():
-    expenses = load_expenses()  # load whatever was saved last time
+    expenses = load_expenses()
 
     while True:
         show_menu()
-        choice = input("Choose an option (1-5): ")
+        choice = input("Choose an option (1-8): ")
 
         if choice == "1":
             add_expense(expenses)
@@ -130,10 +175,16 @@ def main():
         elif choice == "4":
             edit_expense(expenses)
         elif choice == "5":
+            total_spending(expenses)
+        elif choice == "6":
+            spending_by_category(expenses)
+        elif choice == "7":
+            spending_by_month(expenses)
+        elif choice == "8":
             print("Goodbye!")
             break
         else:
-            print("Invalid choice, please enter 1-5.")
+            print("Invalid choice, please enter 1-8.")
 
 
 if __name__ == "__main__":
