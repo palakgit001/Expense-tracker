@@ -9,7 +9,9 @@ def show_menu():
     print("\n=== Expense Tracker ===")
     print("1. Add Expense")
     print("2. View Expenses")
-    print("3. Exit")
+    print("3. Delete Expense")
+    print("4. Edit Expense")
+    print("5. Exit")
 
 
 def save_expense(expense):
@@ -20,6 +22,16 @@ def save_expense(expense):
         if not file_exists:
             writer.writeheader()
         writer.writerow(expense)
+
+
+def save_all_expenses(expenses):
+    """Rewrite the entire CSV file from the current expenses list.
+    Needed after delete/edit since those change existing rows,
+    not just add new ones."""
+    with open(FILENAME, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(expenses)
 
 
 def load_expenses():
@@ -46,7 +58,7 @@ def add_expense(expenses):
         "description": description
     }
     expenses.append(expense)
-    save_expense(expense)  # NEW: write it to disk immediately
+    save_expense(expense)  # append to disk immediately
     print("Expense added!")
 
 
@@ -60,22 +72,68 @@ def view_expenses(expenses):
         print(f"{i}. ₹{exp['amount']} | {exp['category']} | {exp['description']}")
 
 
+def delete_expense(expenses):
+    view_expenses(expenses)
+    if not expenses:
+        return
+    try:
+        index = int(input("Enter the number of the expense to delete: ")) - 1
+        if 0 <= index < len(expenses):
+            removed = expenses.pop(index)
+            print(f"Deleted: {removed['description']} (₹{removed['amount']})")
+            save_all_expenses(expenses)
+        else:
+            print("Invalid number.")
+    except ValueError:
+        print("Please enter a valid number.")
+
+
+def edit_expense(expenses):
+    view_expenses(expenses)
+    if not expenses:
+        return
+    try:
+        index = int(input("Enter the number of the expense to edit: ")) - 1
+        if 0 <= index < len(expenses):
+            exp = expenses[index]
+            print("Leave blank to keep the current value.")
+
+            new_amount = input(f"Amount [{exp['amount']}]: ")
+            new_category = input(f"Category [{exp['category']}]: ")
+            new_description = input(f"Description [{exp['description']}]: ")
+
+            exp["amount"] = new_amount if new_amount else exp["amount"]
+            exp["category"] = new_category if new_category else exp["category"]
+            exp["description"] = new_description if new_description else exp["description"]
+
+            save_all_expenses(expenses)
+            print("Expense updated!")
+        else:
+            print("Invalid number.")
+    except ValueError:
+        print("Please enter a valid number.")
+
+
 def main():
-    expenses = load_expenses()  # NEW: load whatever was saved last time
+    expenses = load_expenses()  # load whatever was saved last time
 
     while True:
         show_menu()
-        choice = input("Choose an option (1-3): ")
+        choice = input("Choose an option (1-5): ")
 
         if choice == "1":
             add_expense(expenses)
         elif choice == "2":
             view_expenses(expenses)
         elif choice == "3":
+            delete_expense(expenses)
+        elif choice == "4":
+            edit_expense(expenses)
+        elif choice == "5":
             print("Goodbye!")
             break
         else:
-            print("Invalid choice, please enter 1, 2, or 3.")
+            print("Invalid choice, please enter 1-5.")
 
 
 if __name__ == "__main__":
