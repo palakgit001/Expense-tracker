@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 FILENAME = "expenses.csv"
 FIELDNAMES = ["date", "amount", "category", "description"]
 
+BUDGET_FILENAME = "budgets.csv"
+BUDGET_FIELDNAMES = ["month", "budget"]
+BUDGET_WARNING_THRESHOLD = 0.9  # warn once spending hits 90% of budget
+
 
 def show_menu():
     print("\n" + "=" * 28)
@@ -21,7 +25,8 @@ def show_menu():
     print("7. Spending by Month")
     print("8. Pie Chart (by Category)")
     print("9. Bar Chart (by Month)")
-    print("10. Exit")
+    print("10. Set Monthly Budget")
+    print("11. Exit")
     print("-" * 28)
 
 
@@ -104,9 +109,75 @@ def load_expenses():
     return expenses
 
 
+# ---------- Budget storage ----------
+
+def load_budgets():
+    """Load budgets from CSV into a dict: {'2026-07': 5000.0, ...}."""
+    budgets = {}
+    if not os.path.isfile(BUDGET_FILENAME):
+        return budgets
+
+    with open(BUDGET_FILENAME, mode="r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                budgets[row["month"]] = float(row["budget"])
+            except (ValueError, TypeError, KeyError):
+                continue
+    return budgets
+
+
+def save_budgets(budgets):
+    """Rewrite the entire budgets CSV file from the current dict."""
+    with open(BUDGET_FILENAME, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=BUDGET_FIELDNAMES)
+        writer.writeheader()
+        for month, budget in sorted(budgets.items()):
+            writer.writerow({"month": month, "budget": f"{budget:.2f}"})
+
+
+def set_budget(budgets):
+    """Prompt the user to set (or update) a budget for a given month."""
+    default_month = datetime.now().strftime("%Y-%m")
+    raw_month = input(f"Enter month as YYYY-MM [{default_month}]: ").strip()
+    month = raw_month if raw_month else default_month
+
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        print("Invalid month format. Please use YYYY-MM (e.g. 2026-07). Budget not set.")
+        return
+
+    amount = get_valid_amount(f"Enter budget for {month}: ₹")
+    budgets[month] = float(amount)
+    save_budgets(budgets)
+    print(f"Budget for {month} set to ₹{float(amount):.2f}")
+
+
+def check_budget_status(expenses, budgets, month):
+    """Print a warning if spending for the given month is close to or over budget."""
+    if month not in budgets:
+        return
+
+    spent = sum(
+        float(exp["amount"]) for exp in expenses if exp["date"][:7] == month
+    )
+    budget = budgets[month]
+
+    if budget <= 0:
+        return
+
+    ratio = spent / budget
+    if spent > budget:
+        print(f"⚠ Over budget for {month}! Spent ₹{spent:.2f} of ₹{budget:.2f} budget.")
+    elif ratio >= BUDGET_WARNING_THRESHOLD:
+        print(f"⚠ Heads up: you've used {ratio * 100:.0f}% of your {month} budget "
+              f"(₹{spent:.2f} of ₹{budget:.2f}).")
+
+
 # ---------- Core features ----------
 
-def add_expense(expenses):
+def add_expense(expenses, budgets):
     amount = get_valid_amount("Enter amount: ")
     category = get_non_empty("Enter category (e.g. Food, Travel): ")
     description = get_non_empty("Enter description: ")
@@ -121,6 +192,8 @@ def add_expense(expenses):
     expenses.append(expense)
     save_expense(expense)
     print("Expense added!")
+
+    check_budget_status(expenses, budgets, date[:7])
 
 
 def view_expenses(expenses):
@@ -265,17 +338,18 @@ def chart_by_month(expenses):
 
 def main():
     expenses = load_expenses()
+    budgets = load_budgets()
 
     while True:
         show_menu()
         try:
-            choice = input("Choose an option (1-10): ").strip()
+            choice = input("Choose an option (1-11): ").strip()
         except (KeyboardInterrupt, EOFError):
             print("\nGoodbye!")
             break
 
         if choice == "1":
-            add_expense(expenses)
+            add_expense(expenses, budgets)
         elif choice == "2":
             view_expenses(expenses)
         elif choice == "3":
@@ -293,10 +367,12 @@ def main():
         elif choice == "9":
             chart_by_month(expenses)
         elif choice == "10":
+            set_budget(budgets)
+        elif choice == "11":
             print("Goodbye!")
             break
         else:
-            print("Invalid choice, please enter 1-10.")
+            print("Invalid choice, please enter 1-11.")
 
 
 if __name__ == "__main__":
