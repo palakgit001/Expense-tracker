@@ -14,6 +14,8 @@ get warned when you go over a monthly budget.
 
 ## Screenshots
 ![Category Spending Pie Chart](screenshots/piechart.png)
+## Demo
+![Demo](screenshots/demo.gif)
 
 ## How to Run
 1. Clone this repo:
