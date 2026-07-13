@@ -12,6 +12,7 @@ BUDGET_FIELDNAMES = ["month", "budget"]
 BUDGET_WARNING_THRESHOLD = 0.9  # warn once spending hits 90% of budget
 
 
+# Displays the main menu with all available options
 def show_menu():
     print("\n" + "=" * 28)
     print("      EXPENSE TRACKER")
@@ -37,6 +38,7 @@ def get_valid_amount(prompt, current=None):
     If current is given, an empty input keeps the current value (used for editing)."""
     while True:
         raw = input(prompt).strip()
+        # Editing mode: blank input means "don't change this field"
         if current is not None and raw == "":
             return current
         try:
@@ -69,12 +71,13 @@ def save_expense(expense):
     with open(FILENAME, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         if not file_exists:
-            writer.writeheader()
+            writer.writeheader()  # only write header once, on first-ever save
         writer.writerow(expense)
 
 
 def save_all_expenses(expenses):
-    """Rewrite the entire CSV file from the current expenses list."""
+    """Rewrite the entire CSV file from the current expenses list.
+    Used after edit/delete since those change existing rows, not just append."""
     with open(FILENAME, mode="w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
@@ -93,9 +96,11 @@ def load_expenses():
     with open(FILENAME, mode="r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            # Skip rows missing any required field
             if not all(row.get(field) for field in FIELDNAMES):
                 skipped += 1
                 continue
+            # Skip rows where amount isn't a valid number
             try:
                 float(row["amount"])
             except (ValueError, TypeError):
@@ -123,7 +128,7 @@ def load_budgets():
             try:
                 budgets[row["month"]] = float(row["budget"])
             except (ValueError, TypeError, KeyError):
-                continue
+                continue  # skip corrupted budget rows silently
     return budgets
 
 
@@ -142,6 +147,7 @@ def set_budget(budgets):
     raw_month = input(f"Enter month as YYYY-MM [{default_month}]: ").strip()
     month = raw_month if raw_month else default_month
 
+    # Validate the month format before saving anything
     try:
         datetime.strptime(month, "%Y-%m")
     except ValueError:
@@ -155,10 +161,12 @@ def set_budget(budgets):
 
 
 def check_budget_status(expenses, budgets, month):
-    """Print a warning if spending for the given month is close to or over budget."""
+    """Print a warning if spending for the given month is close to or over budget.
+    Called automatically after adding a new expense."""
     if month not in budgets:
-        return
+        return  # no budget set for this month, nothing to check
 
+    # Sum only the expenses that fall in the given month
     spent = sum(
         float(exp["amount"]) for exp in expenses if exp["date"][:7] == month
     )
@@ -177,6 +185,7 @@ def check_budget_status(expenses, budgets, month):
 
 # ---------- Core features ----------
 
+# Prompts for expense details, saves it, and checks budget status for that month
 def add_expense(expenses, budgets):
     amount = get_valid_amount("Enter amount: ")
     category = get_non_empty("Enter category (e.g. Food, Travel): ")
@@ -196,6 +205,7 @@ def add_expense(expenses, budgets):
     check_budget_status(expenses, budgets, date[:7])
 
 
+# Prints a numbered list of all expenses
 def view_expenses(expenses):
     if not expenses:
         print("No expenses yet.")
@@ -211,7 +221,7 @@ def get_valid_index(expenses, prompt):
     while True:
         raw = input(prompt).strip()
         if raw == "":
-            return None
+            return None  # user chose to cancel
         try:
             index = int(raw) - 1
         except ValueError:
@@ -222,6 +232,7 @@ def get_valid_index(expenses, prompt):
         print(f"Please enter a number between 1 and {len(expenses)}.")
 
 
+# Removes an expense chosen by the user and rewrites the CSV
 def delete_expense(expenses):
     view_expenses(expenses)
     if not expenses:
@@ -235,6 +246,7 @@ def delete_expense(expenses):
     save_all_expenses(expenses)
 
 
+# Lets the user update an existing expense's amount, category, or description
 def edit_expense(expenses):
     view_expenses(expenses)
     if not expenses:
@@ -275,7 +287,7 @@ def spending_by_category(expenses):
         totals[exp["category"]] += float(exp["amount"])
 
     print("\n--- Spending by Category ---")
-    for category, amount in sorted(totals.items(), key=lambda x: -x[1]):
+    for category, amount in sorted(totals.items(), key=lambda x: -x[1]):  # highest spend first
         print(f"{category}: ₹{amount:.2f}")
 
 
@@ -295,8 +307,8 @@ def spending_by_month(expenses):
         print(f"{month}: ₹{amount:.2f}")
 
 
+# Builds and displays a pie chart of spending grouped by category
 def chart_by_category(expenses):
-    """Pie chart of spending by category."""
     if not expenses:
         print("No expenses yet.")
         return
@@ -314,8 +326,8 @@ def chart_by_category(expenses):
     plt.show()
 
 
+# Builds and displays a bar chart of spending grouped by month
 def chart_by_month(expenses):
-    """Bar chart of spending by month."""
     if not expenses:
         print("No expenses yet.")
         return
@@ -336,6 +348,7 @@ def chart_by_month(expenses):
     plt.show()
 
 
+# Main program loop: loads saved data, shows the menu, and routes user choices
 def main():
     expenses = load_expenses()
     budgets = load_budgets()
